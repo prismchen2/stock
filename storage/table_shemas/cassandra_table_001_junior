@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS stock.junior (
+    ticker text,
+    date text,
+    open float,
+    close float,
+    PRIMARY KEY (ticker, date)
+);
