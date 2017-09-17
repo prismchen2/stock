@@ -1,4 +1,4 @@
-from __future__ import  absolute_import
+from __future__ import absolute_import
 
 from pandas_datareader import data as pdr
 from pandas import DataFrame
@@ -25,30 +25,39 @@ class EODReader:
         self.data = self._get_data()
 
     def read(self):
+        """
+        Return all data within this reader
+
+        :return: [EOD]
+        """
         return self.data
 
     def _get_data(self):
+        """
+        Generate a list of EOD data from DB. If the data is not complete from start_date to end_date,
+        fill the gap with data from Yahoo finance
+
+        :return: [EOD]
+        """
         data = []
         for ticker in self.tickers:
             gap_start = self.start_date
             for d in self._dates_between(self.start_date, self.end_date):
+                # Try to find EOD for this 'd' at DB at first
                 results = self.repo.read([ticker, d.isoformat()])
+                # If EOD found in DB
                 if results and len(results) == len(self.repo.read_cols):
-                    if gap_start == d:
-                        data.append(EOD(ticker=ticker, date=d.isoformat(), open=results[0], close=results[1]))
-                        gap_start = self._tomorrow(d)
-                        continue
-                    else:
+                    if gap_start < d:
                         data += self._fill_gap(ticker, gap_start, self._yesterday(d))
-                        data.append(EOD(ticker=ticker, date=d.isoformat(), open=results[0], close=results[1]))
-                        gap_start = self._tomorrow(d)
-
+                    data.append(EOD(ticker=ticker, date=d.isoformat(), open=results[0], close=results[1]))
+                    gap_start = self._tomorrow(d)
             data += self._fill_gap(ticker, gap_start, self.end_date)
         return data
 
     @staticmethod
     def _fetch_eod_data(ticker, start_date, end_date):
         """
+        Fetch data from Yahoo finance with the given ticker, start date & end date
         
         :param ticker: string
         :param start_date: date
@@ -57,6 +66,7 @@ class EODReader:
         """
         try:
             result = pdr.get_data_yahoo(ticker, start=start_date, end=end_date)
+            logging.info('Remote fetching finance data...')
             if not isinstance(result, DataFrame):
                 raise Exception('Incorrect return type from data source')
         except Exception as e:
@@ -66,8 +76,9 @@ class EODReader:
 
     def _fill_gap(self, ticker, start_date, end_date):
         """
+        Return the eods from start_date to end_date by querying Yahoo finance
 
-        :param ticker:
+        :param ticker: string
         :param start_date: date
         :param end_date: date
         :return: [EOD]
@@ -75,31 +86,36 @@ class EODReader:
         if start_date > end_date:
             return []
 
-        eods = self._fetch_eod_data(ticker, start_date, end_date)
+        fetched_eods = self._fetch_eod_data(ticker, start_date, end_date)
 
-        if eods.empty:
+        if fetched_eods.empty:
             return []
 
         logger.info('Get data from %s to %s' % (start_date.isoformat(), end_date.isoformat()))
 
-        eods = [
-            EOD(
+        gap_eods = []
+        for i in range(len(fetched_eods)):
+            d = fetched_eods.index[i].date()
+            # remove EOD that's outside of date range
+            if d < start_date or d > end_date:
+                continue
+            e = EOD(
                 ticker=ticker,
-                date=str(eods.index[i].date().isoformat()),
-                open=eods.iloc[i][self.YF_OPEN],
-                close=eods.iloc[i][self.YF_CLOSE],
+                date=str(d.isoformat()),
+                open=fetched_eods.iloc[i][self.YF_OPEN],
+                close=fetched_eods.iloc[i][self.YF_CLOSE],
             )
-            for i in range(len(eods))
-        ]
+            gap_eods.append(e)
+            # write down to DB for future uses
+            self.repo.write([e.ticker, e.date, e.open, e.close])
 
-        for eod in eods:
-            self.repo.write([eod.ticker, eod.date, eod.open, eod.close])
-
-        return eods
+        # sort the eods by date
+        return sorted(gap_eods, key=lambda eod: date_parser.parse(eod.date))
 
     @staticmethod
     def _tomorrow(d):
         """
+        Return tomorrow's date
 
         :param d: date
         :return: date
@@ -110,6 +126,7 @@ class EODReader:
     @staticmethod
     def _yesterday(d):
         """
+        Return yesterday's date
 
         :param d: date
         :return: date
@@ -120,6 +137,7 @@ class EODReader:
     @staticmethod
     def _dates_between(start_date, end_date):
         """
+        Return the list of dates that between start_date and end_date, inclusively
 
         :param start_date: date
         :param end_date: date

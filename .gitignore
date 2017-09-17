@@ -2,3 +2,6 @@ env/
 .idea
 reader/*.pyc
 storage/*.pyc
+tests/*.pyc
+tests/__pycache__/
+.cache/*

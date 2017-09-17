@@ -1,12 +1,11 @@
-from __future__ import  absolute_import
+from __future__ import absolute_import
 
 import fix_yahoo_finance as yf
 from storage.cassandra import CassandraRepo
-from reader.EODReader import EODReader
+from reader.eod_reader import EODReader
 
 yf.pdr_override()
 
-data_path = 'data/'
 tickers = ['MSFT']
 
 
