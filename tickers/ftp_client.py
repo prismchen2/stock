@@ -18,9 +18,19 @@ class FTPClient:
         self.download_file(nasdaq_listed)
 
     def get_tickers(self):
+        """
+        Get all tickers from nasdaqlisted.txt
+
+        :return: [[...]]
+        """
         return self.nasdaq_tickers
 
     def get_titles(self):
+        """
+        Get title line from nasdaqlisted.txt
+
+        :return: [str]
+        """
         return self.titles
 
     def download_file(self, file_name):
