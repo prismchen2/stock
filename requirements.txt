@@ -1,6 +1,6 @@
 cassandra-driver==3.11.0
 ccm==2.8.1
-certifi==2017.7.27.1
+certifi==2022.12.7
 chardet==3.0.4
 fix-yahoo-finance==0.0.18
 futures==3.1.1
